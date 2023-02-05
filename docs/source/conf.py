@@ -36,7 +36,7 @@ matplotlib.use("Agg")
 # -- Project information -----------------------------------------------------
 
 project = "moabb"
-copyright = "2018-2023 MOABB contributors"
+copyright = "2018-2021, Alexandre Barachant, Sylvain Chevallier"
 author = "Alexandre Barachant, Vinay Jayaram, Sylvain Chevallier"
 
 # The short X.Y version
@@ -69,7 +69,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.linkcode",
     "sphinx.ext.mathjax",
-    # "sphinx.ext.viewcode",
+    "sphinx.ext.viewcode",
     "sphinx_gallery.gen_gallery",
     "gh_substitutions",
     "m2r2",
@@ -79,29 +79,24 @@ extensions = [
 
 def linkcode_resolve(domain, info):  # noqa: C901
     """Determine the URL corresponding to a Python object.
-
     Parameters
     ----------
     domain : str
         Only useful when 'py'.
     info : dict
         With keys "module" and "fullname".
-
     Returns
     -------
     url : str
         The code URL.
-
     Notes
     -----
     This has been adapted to deal with our "verbose" decorator.
     Adapted from SciPy (doc/source/conf.py).
     """
-    repo = "https://github.com/NeuroTechX/moabb"
+    import mne
 
     if domain != "py":
-        return None
-    if not info["module"]:
         return None
 
     modname = info["module"]
@@ -117,6 +112,9 @@ def linkcode_resolve(domain, info):  # noqa: C901
             obj = getattr(obj, part)
         except Exception:
             return None
+    # deal with our decorators properly
+    while hasattr(obj, "__wrapped__"):
+        obj = obj.__wrapped__
 
     try:
         fn = inspect.getsourcefile(obj)
@@ -129,7 +127,7 @@ def linkcode_resolve(domain, info):  # noqa: C901
             fn = None
     if not fn:
         return None
-    fn = op.relpath(fn, start=op.dirname(moabb.__file__))
+    fn = op.relpath(fn, start=op.dirname(mne.__file__))
     fn = "/".join(op.normpath(fn).split(os.sep))  # in case on Windows
 
     try:
@@ -142,11 +140,15 @@ def linkcode_resolve(domain, info):  # noqa: C901
     else:
         linespec = ""
 
-    # if "dev" in moabb.__version__:
-    #     kind = "develop"
-    # else:
-    #     kind = "master"
-    return f"{repo}/blob/develop/moabb/{fn}{linespec}"
+    if "dev" in moabb.__version__:
+        kind = "master"
+    else:
+        kind = "maint/%s" % (".".join(mne.__version__.split(".")[:2]))
+    return "http://github.com/NeuroTechX/moabb/blob/%s/moabb/%s%s" % (  # noqa
+        kind,
+        fn,
+        linespec,
+    )
 
 
 napoleon_google_docstring = False
@@ -192,7 +194,7 @@ master_doc = "index"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = "en"
+language = None
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -220,9 +222,9 @@ html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 # theme further.
 html_theme_options = {
     # Navigation bar title. (Default: ``project`` value)
-    "navbar_title": "MOABB",
+    # 'navbar_title': "Demo",
     # Tab name for entire site. (Default: "Site")
-    "navbar_site_name": "MOABB",
+    # 'navbar_site_name': "Site",
     # A list of tuples containing pages or urls to link to.
     # Valid tuples should be in the following forms:
     #    (name, page)                 # a link to a page
@@ -232,7 +234,6 @@ html_theme_options = {
     # an arbitrary url.
     "navbar_links": [
         ("What's new", "whats_new"),
-        ("Datasets", "dataset_summary"),
         ("API", "api"),
         ("Gallery", "auto_examples/index"),
         ("Tutorials", "auto_tutorials/index"),
@@ -346,7 +347,7 @@ texinfo_documents = [
         "moabb Documentation",
         author,
         "moabb",
-        "Mother of all BCI benchmarks.",
+        "One line description of project.",
         "Miscellaneous",
     ),
 ]

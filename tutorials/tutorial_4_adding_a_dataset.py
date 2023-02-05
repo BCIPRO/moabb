@@ -154,6 +154,10 @@ dataset = ExampleDataset()
 paradigm = LeftRightImagery()
 X, labels, meta = paradigm.get_data(dataset=dataset, subjects=[1])
 
+print(X.shape)
+print("0000000000000000000000000")
+print(labels.shape)
+
 evaluation = WithinSessionEvaluation(
     paradigm=paradigm, datasets=dataset, overwrite=False, suffix="newdataset"
 )

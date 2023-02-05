@@ -71,7 +71,6 @@ pipelines["AM+SVM"] = pipe
 
 print(LeftRightImagery().datasets)
 
-
 ##########################################################################
 # Or you can run a search through the available datasets:
 print(utils.dataset_search(paradigm="imagery", min_subjects=6))
@@ -81,8 +80,18 @@ print(utils.dataset_search(paradigm="imagery", min_subjects=6))
 # constraints)
 
 dataset = BNCI2014001()
+#a = dataset.download()
+#print(a)
 dataset.subject_list = dataset.subject_list[:2]
 datasets = [dataset]
+
+# print("----------------------")
+# print(dataset.get_data()[1])
+# print("----------------------")
+
+# def xD:
+
+# exit()
 
 ##########################################################################
 # Paradigm
@@ -97,7 +106,6 @@ datasets = [dataset]
 fmin = 8
 fmax = 35
 paradigm = LeftRightImagery(fmin=fmin, fmax=fmax)
-
 ##########################################################################
 # Evaluation
 # --------------------
@@ -109,6 +117,7 @@ paradigm = LeftRightImagery(fmin=fmin, fmax=fmax)
 evaluation = CrossSessionEvaluation(
     paradigm=paradigm, datasets=datasets, suffix="examples", overwrite=False
 )
+
 results = evaluation.process(pipelines)
 
 ##########################################################################

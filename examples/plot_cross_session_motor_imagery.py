@@ -93,9 +93,6 @@ print(results.head())
 #
 # Here we plot the results. We first make a pointplot with the average
 # performance of each pipeline across session and subjects.
-# The second plot is a paired scatter plot. Each point representing the score
-# of a single session. An algorithm will outperform another is most of the
-# points are in its quadrant.
 
 fig, axes = plt.subplots(1, 2, figsize=[8, 4], sharey=True)
 
@@ -113,6 +110,12 @@ sns.pointplot(data=results, y="score", x="pipeline", ax=axes[0], palette="Set1")
 
 axes[0].set_ylabel("ROC AUC")
 axes[0].set_ylim(0.5, 1)
+axes[0].set_zorder=1
+
+##############################################################################
+# The second plot is a paired scatter plot. Each point representing the score
+# of a single session. An algorithm will outperform another is most of the
+# points are in its quadrant.
 
 paired = results.pivot_table(
     values="score", columns="pipeline", index=["subject", "session"]

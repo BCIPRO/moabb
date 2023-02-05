@@ -24,15 +24,6 @@ WANG_URL = "ftp://sccn.ucsd.edu/pub/ssvep_benchmark_dataset/"
 class Wang2016(BaseDataset):
     """SSVEP Wang 2016 dataset
 
-    .. admonition:: Dataset summary
-
-
-        ========  =======  =======  ==========  =================  ===============  ===============  ===========
-        Name        #Subj    #Chan    #Classes    #Trials / class  Trials length    Sampling rate      #Sessions
-        ========  =======  =======  ==========  =================  ===============  ===============  ===========
-        Wang2016       32       62          40                  6  5s               250Hz                      1
-        ========  =======  =======  ==========  =================  ===============  ===============  ===========
-
     Dataset from [1]_.
 
     This dataset gathered SSVEP-BCI recordings of 35 healthy subjects (17
@@ -113,7 +104,7 @@ class Wang2016(BaseDataset):
             subjects=list(range(1, 35)),
             sessions_per_subject=1,
             events=self._events,
-            code="Wang_SSVEP",
+            code="SSVEP Wang",
             interval=[0.5, 5.5],
             paradigm="ssvep",
             doi="doi://10.1109/TNSRE.2016.2627556",

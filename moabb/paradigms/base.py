@@ -1,5 +1,5 @@
 import logging
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, abstractproperty
 
 import mne
 import numpy as np
@@ -16,8 +16,7 @@ class BaseParadigm(metaclass=ABCMeta):
     def __init__(self):
         pass
 
-    @property
-    @abstractmethod
+    @abstractproperty
     def scoring(self):
         """Property that defines scoring metric (e.g. ROC-AUC or accuracy
         or f-score), given as a sklearn-compatible string or a compatible
@@ -26,8 +25,7 @@ class BaseParadigm(metaclass=ABCMeta):
         """
         pass
 
-    @property
-    @abstractmethod
+    @abstractproperty
     def datasets(self):
         """Property that define the list of compatible datasets"""
         pass
@@ -54,24 +52,21 @@ class BaseParadigm(metaclass=ABCMeta):
     def prepare_process(self, dataset):
         """Prepare processing of raw files
 
-                This function allows to set parameter of the paradigm class prior to
-                the preprocessing (process_raw). Does nothing by default and could be
-                overloaded if needed.
+        This function allows to set parameter of the paradigm class prior to
+        the preprocessing (process_raw). Does nothing by default and could be
+        overloaded if needed.
 
-                Parameters
-                ----------
+        Parameters
+        ----------
 
-                dataset : dataset instance
-                    The dataset corresponding to the raw file. mainly use to access
-                    dataset specific i
-        nformation.
+        dataset : dataset instance
+            The dataset corresponding to the raw file. mainly use to access
+            dataset specific information.
         """
         if dataset is not None:
             pass
 
-    def process_raw(  # noqa: C901
-        self, raw, dataset, return_epochs=False, return_raws=False
-    ):
+    def process_raw(self, raw, dataset, return_epochs=False):  # noqa: C901
         """
         Process one raw data file.
 
@@ -92,9 +87,6 @@ class BaseParadigm(metaclass=ABCMeta):
         return_epochs: boolean
             This flag specifies whether to return only the data array or the
             complete processed mne.Epochs
-        return_raws: boolean
-            To return raw files and events, to ensure compatibility with braindecode.
-            Mutually exclusive with return_epochs
 
         returns
         -------
@@ -108,11 +100,6 @@ class BaseParadigm(metaclass=ABCMeta):
             A dataframe containing the metadata
 
         """
-
-        if return_epochs and return_raws:
-            message = "Select only return_epochs or return_raws, not both"
-            raise ValueError(message)
-
         # get events id
         event_id = self.used_events(dataset)
 
@@ -126,7 +113,7 @@ class BaseParadigm(metaclass=ABCMeta):
                     raw, event_id=event_id, verbose=False
                 )
             except ValueError:
-                log.warning(f"No matching annotations in {raw.filenames}")
+                log.warning("No matching annotations in {}".format(raw.filenames))
                 return
 
         # picks channels
@@ -144,66 +131,61 @@ class BaseParadigm(metaclass=ABCMeta):
             # skip raw if no event found
             return
 
-        if return_raws:
-            raw = raw.pick(picks)
+        # get interval
+        tmin = self.tmin + dataset.interval[0]
+        if self.tmax is None:
+            tmax = dataset.interval[1]
         else:
-            # get interval
-            tmin = self.tmin + dataset.interval[0]
-            if self.tmax is None:
-                tmax = dataset.interval[1]
-            else:
-                tmax = self.tmax + dataset.interval[0]
+            tmax = self.tmax + dataset.interval[0]
 
-            X = []
-            for bandpass in self.filters:
-                fmin, fmax = bandpass
-                # filter data
-                raw_f = raw.copy().filter(
-                    fmin, fmax, method="iir", picks=picks, verbose=False
+        X = []
+        for bandpass in self.filters:
+            fmin, fmax = bandpass
+            # filter data
+            raw_f = raw.copy().filter(
+                fmin, fmax, method="iir", picks=picks, verbose=False
+            )
+            # epoch data
+            baseline = self.baseline
+            if baseline is not None:
+                baseline = (
+                    self.baseline[0] + dataset.interval[0],
+                    self.baseline[1] + dataset.interval[0],
                 )
-                # epoch data
-                baseline = self.baseline
-                if baseline is not None:
-                    baseline = (
-                        self.baseline[0] + dataset.interval[0],
-                        self.baseline[1] + dataset.interval[0],
-                    )
-                    bmin = baseline[0] if baseline[0] < tmin else tmin
-                    bmax = baseline[1] if baseline[1] > tmax else tmax
-                else:
-                    bmin = tmin
-                    bmax = tmax
-                epochs = mne.Epochs(
-                    raw_f,
-                    events,
-                    event_id=event_id,
-                    tmin=bmin,
-                    tmax=bmax,
-                    proj=False,
-                    baseline=baseline,
-                    preload=True,
-                    verbose=False,
-                    picks=picks,
-                    event_repeated="drop",
-                    on_missing="ignore",
-                )
-                if bmin < tmin or bmax > tmax:
-                    epochs.crop(tmin=tmin, tmax=tmax)
-                if self.resample is not None:
-                    epochs = epochs.resample(self.resample)
-                # rescale to work with uV
-                if return_epochs:
-                    X.append(epochs)
-                else:
-                    X.append(dataset.unit_factor * epochs.get_data())
+                bmin = baseline[0] if baseline[0] < tmin else tmin
+                bmax = baseline[1] if baseline[1] > tmax else tmax
+            else:
+                bmin = tmin
+                bmax = tmax
+            epochs = mne.Epochs(
+                raw_f,
+                events,
+                event_id=event_id,
+                tmin=bmin,
+                tmax=bmax,
+                proj=False,
+                baseline=baseline,
+                preload=True,
+                verbose=False,
+                picks=picks,
+                event_repeated="drop",
+                on_missing="ignore",
+            )
+            if bmin < tmin or bmax > tmax:
+                epochs.crop(tmin=tmin, tmax=tmax)
+            if self.resample is not None:
+                epochs = epochs.resample(self.resample)
+            # rescale to work with uV
+            if return_epochs:
+                X.append(epochs)
+            else:
+                X.append(dataset.unit_factor * epochs.get_data())
 
         inv_events = {k: v for v, k in event_id.items()}
-        labels = np.array([inv_events[e] for e in events[:, -1]])
+        labels = np.array([inv_events[e] for e in epochs.events[:, -1]])
 
         if return_epochs:
             X = mne.concatenate_epochs(X)
-        elif return_raws:
-            X = raw
         elif len(self.filters) == 1:
             # if only one band, return a 3D array
             X = X[0]
@@ -214,7 +196,7 @@ class BaseParadigm(metaclass=ABCMeta):
         metadata = pd.DataFrame(index=range(len(labels)))
         return X, labels, metadata
 
-    def get_data(self, dataset, subjects=None, return_epochs=False, return_raws=False):
+    def get_data(self, dataset, subjects=None, return_epochs=False):
         """
         Return the data for a list of subject.
 
@@ -234,9 +216,6 @@ class BaseParadigm(metaclass=ABCMeta):
         return_epochs: boolean
             This flag specifies whether to return only the data array or the
             complete processed mne.Epochs
-        return_raws: boolean
-            To return raw files and events, to ensure compatibility with braindecode.
-            Mutually exclusive with return_epochs
 
         returns
         -------
@@ -251,23 +230,19 @@ class BaseParadigm(metaclass=ABCMeta):
         """
 
         if not self.is_valid(dataset):
-            message = f"Dataset {dataset.code} is not valid for paradigm"
+            message = "Dataset {} is not valid for paradigm".format(dataset.code)
             raise AssertionError(message)
-
-        if return_epochs and return_raws:
-            message = "Select only return_epochs or return_raws, not both"
-            raise ValueError(message)
 
         data = dataset.get_data(subjects)
         self.prepare_process(dataset)
 
-        X = [] if (return_epochs or return_raws) else np.array([])
+        X = [] if return_epochs else np.array([])
         labels = []
         metadata = []
         for subject, sessions in data.items():
             for session, runs in sessions.items():
                 for run, raw in runs.items():
-                    proc = self.process_raw(raw, dataset, return_epochs, return_raws)
+                    proc = self.process_raw(raw, dataset, return_epochs=return_epochs)
 
                     if proc is None:
                         # this mean the run did not contain any selected event
@@ -282,8 +257,6 @@ class BaseParadigm(metaclass=ABCMeta):
 
                     # grow X and labels in a memory efficient way. can be slow
                     if return_epochs:
-                        X.append(x)
-                    elif return_raws:
                         X.append(x)
                     else:
                         X = np.append(X, x, axis=0) if len(X) else x

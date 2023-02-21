@@ -66,7 +66,7 @@ class WenData(BaseDataset):
         fs = data["fs"]
         sessions = {}
 
-        annot = mne.Annotations(np.arange(0, 60, 5), 5, np.array(["open", "closed"] * 6))
+        annot = mne.Annotations(np.arange(0, 60, 5), 5, np.array((["open"]*1+["closed"]*1) * 6))
         
         for sess in range(num_session):
             x = data["x" + str(sess)]
